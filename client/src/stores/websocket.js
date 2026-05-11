@@ -80,10 +80,10 @@ export const useWebSocketStore = defineStore('websocket', () => {
                 playerStore.play();
               }
             },
-            // ended: stop DJ speaking
+            // ended: stop DJ speaking only; radioLoading stays true
+            // until the music's ended event resets it in next()
             () => {
               playerStore.stopDJSpeaking();
-              playerStore.setRadioLoading(false);
             }
           );
         } else {
@@ -92,7 +92,7 @@ export const useWebSocketStore = defineStore('websocket', () => {
             playerStore.loadPlaylist(data.playlist);
             playerStore.play();
           }
-          playerStore.setRadioLoading(false);
+          // radioLoading stays true until music ends
         }
         break;
       }
