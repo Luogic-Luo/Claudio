@@ -15,20 +15,32 @@
             <span v-else class="status-badge no-vip">非VIP</span>
           </div>
           <div class="logged-actions">
-            <button @click="generateTaste" class="action-btn" :disabled="generating">
-              {{ generating ? '生成中...' : '🎵 生成音乐品味' }}
+            <button @click="distillTaste" class="action-btn" :disabled="distilling">
+              {{ distilling ? '蒸馏中...' : '🧪 蒸馏听歌品味' }}
             </button>
             <button @click="logoutNetease" class="logout-btn" :disabled="loggingOut">
               {{ loggingOut ? '退出中...' : '退出登录' }}
             </button>
           </div>
           <div v-if="tasteResult" class="taste-result">
-            <p>品味文件已生成！</p>
+            <p>品味蒸馏完成！</p>
             <ul>
               <li>分析歌单: {{ tasteResult.stats.playlists }} 个</li>
               <li>总歌曲: {{ tasteResult.stats.tracks }} 首</li>
-              <li>喜欢的艺术家: {{ tasteResult.stats.topArtists.join(', ') }}</li>
+              <li>高频艺术家: {{ tasteResult.stats.topArtists.join(', ') }}</li>
             </ul>
+            <div v-if="tasteResult.genres?.length > 0" class="taste-detail">
+              <p class="detail-title">风格分布</p>
+              <div class="genre-list">
+                <span v-for="g in tasteResult.genres" :key="g.name" class="genre-tag">
+                  {{ g.name }} {{ g.percentage }}%
+                </span>
+              </div>
+            </div>
+            <div v-if="tasteResult.summary" class="taste-summary">
+              <p class="detail-title">品味总结</p>
+              <p class="summary-text">{{ tasteResult.summary }}</p>
+            </div>
           </div>
         </div>
         <div v-else class="login-section">
@@ -145,7 +157,7 @@ const loginError = ref('');
 const qrImage = ref('');
 const qrKey = ref('');
 const qrStatusText = ref('');
-const generating = ref(false);
+const distilling = ref(false);
 const loggingOut = ref(false);
 const tasteResult = ref(null);
 let qrCheckInterval = null;
@@ -220,16 +232,16 @@ function startQrCheck() {
   }, 2000);
 }
 
-async function generateTaste() {
-  generating.value = true;
+async function distillTaste() {
+  distilling.value = true;
   tasteResult.value = null;
   try {
-    const response = await axios.post('/api/netease/generate-taste');
+    const response = await axios.post('/api/netease/distill-taste', null, { timeout: 120000 });
     tasteResult.value = response.data;
   } catch (error) {
-    alert('生成品味文件失败: ' + (error.response?.data?.message || error.message));
+    alert('蒸馏品味失败: ' + (error.response?.data?.message || error.message));
   } finally {
-    generating.value = false;
+    distilling.value = false;
   }
 }
 
@@ -410,6 +422,44 @@ function resetSettings() {
 .taste-result li {
   padding: 0.25rem 0;
   color: var(--text-secondary);
+}
+
+.taste-detail {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.detail-title {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.genre-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.genre-tag {
+  padding: 0.2rem 0.6rem;
+  border-radius: 12px;
+  background: rgba(233, 69, 96, 0.15);
+  color: var(--accent);
+  font-size: 0.8rem;
+}
+
+.taste-summary {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.summary-text {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.6;
 }
 
 .login-tabs {

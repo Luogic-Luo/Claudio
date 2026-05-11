@@ -37,6 +37,23 @@ export async function chat(systemPrompt, userMessage, chatHistory = []) {
   }
 }
 
+export async function chatRaw(systemPrompt, userMessage) {
+  const messages = [
+    { role: 'system', content: systemPrompt },
+    { role: 'user', content: userMessage },
+  ];
+
+  const response = await client.post('/chat/completions', {
+    model: config.mimo.model,
+    messages,
+    temperature: 0.3,
+    max_tokens: 2000,
+    response_format: { type: 'json_object' },
+  });
+
+  return JSON.parse(response.data.choices[0].message.content);
+}
+
 function parseResponse(content) {
   try {
     const parsed = JSON.parse(content);
@@ -91,4 +108,4 @@ export function buildStructuredPrompt(context) {
   return parts.join('\n');
 }
 
-export default { chat, buildStructuredPrompt };
+export default { chat, chatRaw, buildStructuredPrompt };

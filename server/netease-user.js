@@ -1,7 +1,8 @@
 import NeteaseCloudMusicApiModule from 'NeteaseCloudMusicApi';
-import { writeFileSync, readFileSync, existsSync, unlinkSync } from 'fs';
+import { writeFileSync, readFileSync, existsSync, unlinkSync, statSync } from 'fs';
 import { join } from 'path';
 import config from './config.js';
+import { chat, chatRaw } from './ai.js';
 
 const NeteaseCloudMusicApi = NeteaseCloudMusicApiModule.default || NeteaseCloudMusicApiModule;
 
@@ -273,6 +274,205 @@ ${playlists.slice(0, 10).map(p => `- ${p.name} (${p.trackCount}首)`).join('\n')
   };
 }
 
+export async function distillTaste() {
+  const status = await checkLoginStatus();
+  if (!status.logged) {
+    return { success: false, message: '请先登录网易云账号' };
+  }
+
+  const cookie = loadCookie();
+
+  // 1. 获取所有歌单，过滤自建歌单
+  const plRes = await user_playlist({ uid: status.userId, cookie });
+  if (plRes.body.code !== 200) {
+    return { success: false, message: '获取歌单失败' };
+  }
+
+  const myPlaylists = plRes.body.playlist.filter(p => p.creator.userId === status.userId);
+  if (myPlaylists.length === 0) {
+    return { success: false, message: '没有找到自建歌单' };
+  }
+
+  // 2. 获取每个歌单的歌曲
+  const allPlaylists = [];
+  for (let i = 0; i < myPlaylists.length; i++) {
+    const pl = myPlaylists[i];
+    try {
+      const detailRes = await playlist_detail({ id: pl.id, cookie });
+      if (detailRes.body.code === 200) {
+        const tracks = (detailRes.body.playlist.tracks || []).map(t => ({
+          id: t.id,
+          name: t.name,
+          artist: (t.ar || []).map(a => a.name).join(', '),
+          album: t.al?.name || '',
+          duration: t.dt,
+        }));
+        allPlaylists.push({
+          playlistId: pl.id,
+          playlistName: pl.name,
+          trackCount: tracks.length,
+          tracks,
+        });
+      }
+    } catch (err) {
+      console.warn(`获取歌单 ${pl.name} 失败:`, err.message);
+    }
+    if (i < myPlaylists.length - 1) {
+      await new Promise(r => setTimeout(r, 300));
+    }
+  }
+
+  // 3. 保存到 all-songs.json
+  const songsFile = join(config.paths.user, 'all-songs.json');
+  writeFileSync(songsFile, JSON.stringify(allPlaylists, null, 2), 'utf-8');
+
+  // 4. 程序化统计
+  const artistCounts = {};
+  let totalSongs = 0;
+  let totalDuration = 0;
+  for (const pl of allPlaylists) {
+    for (const t of pl.tracks) {
+      totalSongs++;
+      totalDuration += t.duration || 0;
+      for (const a of t.artist.split(',').map(s => s.trim())) {
+        if (a) artistCounts[a] = (artistCounts[a] || 0) + 1;
+      }
+    }
+  }
+  const topArtists = Object.entries(artistCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 30);
+
+  // 5. 构建歌单摘要
+  const playlistSummary = allPlaylists.map(pl => ({
+    name: pl.playlistName,
+    count: pl.trackCount,
+    sampleSongs: pl.tracks.slice(0, 8).map(t => `${t.name} - ${t.artist}`),
+  }));
+
+  // 6. AI 分类
+  const classifyPrompt = `你是一个音乐数据分析专家。根据以下用户的歌单信息，分析其音乐品味。
+
+## 歌单列表
+${playlistSummary.map(pl => `- ${pl.name} (${pl.count}首): ${pl.sampleSongs.join(', ')}`).join('\n')}
+
+## 高频艺术家 (前20)
+${topArtists.slice(0, 20).map(([name, count]) => `${name}: ${count}首`).join('\n')}
+
+请输出 JSON 格式:
+{
+  "genres": [{"name": "风格名", "percentage": 数字, "artists": "代表艺术家", "description": "一句话描述"}],
+  "languages": [{"name": "语言", "percentage": 数字}],
+  "moods": [{"name": "情绪类型", "percentage": 数字, "description": "一句话描述"}],
+  "eras": [{"name": "年代", "percentage": 数字}],
+  "summary": "用3-4句话总结这个人的音乐品味特征，像朋友评价一样自然"
+}
+
+要求:
+- genres 总和为 100，列出 5-8 个主要风格
+- languages 总和为 100
+- moods 总和为 100，列出 3-5 种情绪
+- eras 总和为 100，按 2020s/2010s/2000s/更早 分
+- 百分比基于歌单中歌曲的风格推断，不需要精确
+- summary 用中文`;
+
+  const classifyResult = await chatRaw('你是一个专业的音乐品味分析师。', classifyPrompt);
+
+  // 7. 古典音乐单独分析
+  const classicalPlaylists = playlistSummary.filter(pl =>
+    /古典|classical|钢琴|piano|交响|symphony|巴赫|贝多芬|肖邦/i.test(pl.name)
+  );
+
+  let classicalDetail = null;
+  if (classicalPlaylists.length > 0) {
+    const classicalPrompt = `你是一个古典音乐专家。分析以下古典音乐歌单的偏好特征。
+
+## 古典歌单
+${classicalPlaylists.map(pl => `- ${pl.name} (${pl.count}首): ${pl.sampleSongs.join(', ')}`).join('\n')}
+
+请输出 JSON 格式:
+{
+  "composers": [{"name": "作曲家", "works": "代表作品"}],
+  "periods": ["偏好的时期，如巴洛克/古典/浪漫/现代"],
+  "instruments": ["偏好的乐器，如钢琴/弦乐/管弦乐"],
+  "characteristics": "用1-2句话描述古典音乐偏好的特点"
+}`;
+
+    classicalDetail = await chatRaw('你是一个古典音乐专家。', classicalPrompt);
+  }
+
+  // 8. 生成 taste.md
+  const lines = [];
+  lines.push('# 听歌品味');
+  lines.push('');
+  lines.push(`> 基于 ${allPlaylists.length} 个自建歌单、${totalSongs} 首歌曲分析生成`);
+  lines.push('');
+
+  lines.push('## 风格偏好');
+  for (const g of classifyResult.genres || []) {
+    lines.push(`- ${g.name} (${g.percentage}%): ${g.description}。代表: ${g.artists}`);
+  }
+  lines.push('');
+
+  lines.push('## 语言分布');
+  for (const l of classifyResult.languages || []) {
+    lines.push(`- ${l.name}: ${l.percentage}%`);
+  }
+  lines.push('');
+
+  lines.push('## 情绪偏好');
+  for (const m of classifyResult.moods || []) {
+    lines.push(`- ${m.name} (${m.percentage}%): ${m.description}`);
+  }
+  lines.push('');
+
+  lines.push('## 年代分布');
+  for (const e of classifyResult.eras || []) {
+    lines.push(`- ${e.name}: ${e.percentage}%`);
+  }
+  lines.push('');
+
+  if (classicalDetail) {
+    lines.push('## 古典音乐偏好');
+    if (classicalDetail.composers?.length > 0) {
+      lines.push(`- 偏好作曲家: ${classicalDetail.composers.map(c => `${c.name}(${c.works})`).join('、')}`);
+    }
+    if (classicalDetail.periods?.length > 0) {
+      lines.push(`- 偏好时期: ${classicalDetail.periods.join('、')}`);
+    }
+    if (classicalDetail.instruments?.length > 0) {
+      lines.push(`- 偏好乐器: ${classicalDetail.instruments.join('、')}`);
+    }
+    if (classicalDetail.characteristics) {
+      lines.push(`- 特点: ${classicalDetail.characteristics}`);
+    }
+    lines.push('');
+  }
+
+  lines.push('## 高频艺术家');
+  for (const [name, count] of topArtists.slice(0, 15)) {
+    lines.push(`- ${name} (${count}首)`);
+  }
+  lines.push('');
+
+  lines.push('## 品味总结');
+  lines.push(classifyResult.summary || '暂无');
+
+  writeFileSync(join(config.paths.user, 'taste.md'), lines.join('\n'), 'utf-8');
+
+  return {
+    success: true,
+    stats: {
+      playlists: allPlaylists.length,
+      tracks: totalSongs,
+      topArtists: topArtists.slice(0, 5).map(([name]) => name),
+    },
+    summary: classifyResult.summary || '',
+    genres: classifyResult.genres || [],
+    languages: classifyResult.languages || [],
+  };
+}
+
 export default {
   loginWithPhone,
   getQrKey,
@@ -283,5 +483,6 @@ export default {
   getPlaylistTracks,
   getLikedSongs,
   generateTasteProfile,
+  distillTaste,
   logout,
 };

@@ -13,6 +13,7 @@ import {
   checkLoginStatus,
   getUserPlaylists,
   generateTasteProfile,
+  distillTaste,
   logout,
 } from './netease-user.js';
 import config from './config.js';
@@ -289,6 +290,20 @@ router.post('/api/netease/generate-taste', async (req, res) => {
       res.status(400).json(result);
     }
   } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.post('/api/netease/distill-taste', async (req, res) => {
+  try {
+    const result = await distillTaste();
+    if (result.success) {
+      res.json(result);
+    } else {
+      res.status(400).json(result);
+    }
+  } catch (error) {
+    console.error('Distill taste failed:', error.message);
     res.status(500).json({ success: false, message: error.message });
   }
 });
