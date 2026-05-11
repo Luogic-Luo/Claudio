@@ -51,11 +51,15 @@ export const useWebSocketStore = defineStore('websocket', () => {
     switch (data.type) {
       case 'play':
       case 'scheduled-play':
-      case 'chat-response':
         if (data.playlist?.length > 0) {
           playerStore.loadPlaylist(data.playlist);
           playerStore.play();
         }
+        if (data.ttsPath) {
+          playTTS(data.ttsPath);
+        }
+        break;
+      case 'chat-response':
         if (data.ttsPath) {
           playTTS(data.ttsPath);
         }

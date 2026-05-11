@@ -45,6 +45,7 @@ function startTyping(text) {
     } else {
       clearInterval(timer);
       timer = null;
+      typing.value = false;
     }
   }, speed);
 }

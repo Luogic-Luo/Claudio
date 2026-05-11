@@ -50,6 +50,11 @@ export const usePlayerStore = defineStore('player', () => {
     }
   }
 
+  function addSongs(songs) {
+    if (songs.length === 0) return;
+    playlist.value.push(...songs);
+  }
+
   function loadSong(song) {
     if (song.url) {
       audio.src = song.url;
@@ -152,6 +157,7 @@ export const usePlayerStore = defineStore('player', () => {
     radioLoading,
     djSpeaking,
     loadPlaylist,
+    addSongs,
     play,
     pause,
     togglePlay,

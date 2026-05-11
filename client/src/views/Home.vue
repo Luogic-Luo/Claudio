@@ -51,10 +51,12 @@
 import { ref, onMounted, nextTick, watch } from 'vue';
 import { useWebSocketStore } from '../stores/websocket';
 import { useChatStore } from '../stores/chat';
+import { usePlayerStore } from '../stores/player';
 import axios from 'axios';
 
 const wsStore = useWebSocketStore();
 const chatStore = useChatStore();
+const playerStore = usePlayerStore();
 const inputMessage = ref('');
 const chatContainer = ref(null);
 const isLoading = ref(false);
@@ -132,6 +134,12 @@ async function sendMessage() {
         'assistant',
         `🎵 为你播放: ${playlist.map(s => `${s.name} - ${s.artist}`).join(', ')}`,
       );
+      if (playerStore.isPlaying) {
+        playerStore.addSongs(playlist);
+      } else {
+        playerStore.loadPlaylist(playlist);
+        playerStore.play();
+      }
     }
   } catch (error) {
     chatStore.addMessage('assistant', '抱歉，出了点问题。请稍后再试。');
