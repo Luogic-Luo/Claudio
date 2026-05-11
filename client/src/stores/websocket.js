@@ -166,9 +166,6 @@ export const useWebSocketStore = defineStore('websocket', () => {
     ttsAudio.onended = () => finish(true);
     ttsAudio.onerror = () => finish(true);
     ttsAudio.play().catch(() => finish(true));
-
-    // Safety net: if TTS hangs, force continue after 15s
-    setTimeout(() => finish(true), 15000);
   }
 
   function send(data) {

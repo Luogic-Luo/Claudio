@@ -1,5 +1,13 @@
 import NeteaseCloudMusicApiModule from 'NeteaseCloudMusicApi';
+import { readFileSync, existsSync, statSync } from 'fs';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import { loadCookie } from './netease-user.js';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const ROOT = join(__dirname, '..');
+const ALL_SONGS_FILE = join(ROOT, 'user', 'all-songs.json');
+const TASTE_FILE = join(ROOT, 'user', 'taste.md');
 
 const NeteaseCloudMusicApi = NeteaseCloudMusicApiModule.default || NeteaseCloudMusicApiModule;
 const { search, song_url_v1, lyric, recommend_songs } = NeteaseCloudMusicApi;
@@ -104,6 +112,81 @@ export async function getRecommendSongs() {
   }
 }
 
+// --- 推荐引擎 ---
+
+let allSongsCache = { data: null, mtime: 0 };
+
+function loadAllSongs() {
+  if (!existsSync(ALL_SONGS_FILE)) return [];
+  try {
+    const stat = statSync(ALL_SONGS_FILE);
+    if (allSongsCache.data && stat.mtimeMs === allSongsCache.mtime) {
+      return allSongsCache.data;
+    }
+    const playlists = JSON.parse(readFileSync(ALL_SONGS_FILE, 'utf-8'));
+    const songs = [];
+    for (const pl of playlists) {
+      for (const t of pl.tracks) {
+        songs.push({ id: t.id, name: t.name, artist: t.artist, album: t.album, duration: t.duration });
+      }
+    }
+    allSongsCache = { data: songs, mtime: stat.mtimeMs };
+    return songs;
+  } catch {
+    return [];
+  }
+}
+
+export function loadTaste() {
+  try {
+    if (existsSync(TASTE_FILE)) return readFileSync(TASTE_FILE, 'utf-8');
+  } catch {}
+  return '';
+}
+
+function fisherYatesShuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+export async function recommendSongs(count = 10, recentPlayIds = []) {
+  const library = loadAllSongs();
+  if (library.length === 0) return { songs: [], taste: loadTaste() };
+
+  const recentSet = new Set(recentPlayIds.map(String));
+  const available = library.filter(s => !recentSet.has(String(s.id)));
+
+  const libraryCount = Math.max(1, Math.round(count * 0.7));
+  const discoveryCount = count - libraryCount;
+
+  // 70% from library
+  const shuffled = fisherYatesShuffle(available);
+  const librarySongs = shuffled.slice(0, libraryCount).map(s => ({ ...s, source: 'library' }));
+
+  // 30% from NetEase daily recommendations
+  let discoverySongs = [];
+  if (discoveryCount > 0) {
+    try {
+      const daily = await getRecommendSongs();
+      const dailyFiltered = daily.filter(s => !recentSet.has(String(s.id)));
+      discoverySongs = fisherYatesShuffle(dailyFiltered)
+        .slice(0, discoveryCount)
+        .map(s => ({ ...s, source: 'discovery' }));
+    } catch {
+      // fallback: pick more from library
+      const extra = shuffled.slice(libraryCount, libraryCount + discoveryCount);
+      discoverySongs = extra.map(s => ({ ...s, source: 'library' }));
+    }
+  }
+
+  const result = fisherYatesShuffle([...librarySongs, ...discoverySongs]);
+  return { songs: result, taste: loadTaste() };
+}
+
 export async function resolvePlayList(playRequests) {
   const results = [];
 
@@ -144,4 +227,6 @@ export default {
   getLyric,
   getRecommendSongs,
   resolvePlayList,
+  recommendSongs,
+  loadTaste,
 };

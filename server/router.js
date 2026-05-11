@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { readFileSafe } from './utils.js';
 import { userPreferences, playPlans, playHistory, chatHistory } from './db.js';
 import { chat } from './ai.js';
-import { resolvePlayList, searchSongs } from './music.js';
+import { resolvePlayList, searchSongs, recommendSongs, loadTaste, getSongUrl } from './music.js';
 import { synthesize } from './tts.js';
 import { buildSystemPrompt, loadUserContext, getTimeContext } from './context.js';
 import {
@@ -174,6 +174,20 @@ router.post('/api/play', async (req, res) => {
   }
 });
 
+router.post('/api/recommend', async (req, res) => {
+  try {
+    const { count = 10 } = req.body;
+    const recentPlays = playHistory.getRecent(30);
+    const recentPlayIds = recentPlays.map(p => p.song_id);
+
+    const result = await recommendSongs(parseInt(count), recentPlayIds);
+    res.json(result);
+  } catch (error) {
+    console.error('Recommend failed:', error.message);
+    res.status(500).json({ error: 'Recommendation failed' });
+  }
+});
+
 router.post('/api/tts', async (req, res) => {
   try {
     const { text } = req.body;
@@ -290,15 +304,34 @@ router.post('/api/netease/logout', (req, res) => {
 
 export async function handleRadioNext() {
   try {
+    // 1. 用推荐引擎选歌
+    const recentPlays = playHistory.getRecent(30);
+    const recentPlayIds = recentPlays.map(p => p.song_id);
+    const { songs: recommended } = await recommendSongs(1, recentPlayIds);
+
+    if (!recommended || recommended.length === 0) {
+      throw new Error('No songs to recommend');
+    }
+
+    const nextSong = recommended[0];
+
+    // 2. 让 AI 只写串词（不推荐歌）
     const systemPrompt = await buildSystemPrompt('radio');
-    const radioPrompt = '当前歌曲刚播完。请推荐下一首歌。要求：1) 必须是最近播放列表中没有的歌曲，推荐不同的艺术家和风格；2) 串词聚焦于歌曲本身——讲这首歌的故事、歌词、编曲、歌手背景，或者和刚播完的歌之间的关联。不要以时间天气开头，不要说空话。';
+    const radioPrompt = `下一首歌已经选好了：${nextSong.name} - ${nextSong.artist}（来自${nextSong.source === 'discovery' ? '新歌发现' : '收藏库'}）。
+请为这首歌写 DJ 串词。要求：
+1) 聚焦于这首歌本身——讲它的故事、歌词、编曲、歌手背景
+2) 2-3 句话，自然口语化
+3) 不要以时间/天气开头，不要说空话
+4) 不需要推荐歌曲，只写串词`;
 
     const aiResponse = await chat(systemPrompt, radioPrompt);
 
-    chatHistory.add('user', radioPrompt, { radio: true });
+    chatHistory.add('user', `[电台] 为 ${nextSong.name} - ${nextSong.artist} 写串词`, { radio: true });
     chatHistory.add('assistant', JSON.stringify(aiResponse), { radio: true });
 
-    const playlist = await resolvePlayList(aiResponse.play);
+    // 3. 获取歌曲 URL
+    const songUrl = await getSongUrl(nextSong.id);
+    const playlist = songUrl ? [{ ...nextSong, url: songUrl.url }] : [];
 
     let ttsPath = null;
     if (aiResponse.say) {

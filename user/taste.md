@@ -1,43 +1,51 @@
-# 我的音乐品味（自动从网易云生成）
+# 听歌品味
 
-## 喜欢的艺术家
-- Herbert von Karajan
-- Berliner Philharmoniker
-- Kathryn Stott
-- Gabriel Fauré
-- London Symphony Orchestra
-- RADWIMPS
-- Janos Starker
-- Rosalyn Tureck
-- Antal Doráti
-- András Schiff
-- Arthur Rubinstein
-- Gil Shaham
-- Göran Söllscher
-- 米津玄師
-- I Musici de Montreal
-- István Bogár
-- Budapest Symphony Orchestra
-- Wiener Philharmoniker
-- Johann Sebastian Bach
-- Dunedin Consort
+> 基于 23 个自建歌单、2637 首歌曲分析生成
 
-## 音乐风格偏好
-- 暂无标签数据
+## 风格偏好
+- 古典音乐 (35%): 歌单中有大量古典音乐作品，从巴洛克到浪漫时期，且是核心偏好。。代表: Herbert von Karajan, Janos Starker, Johann Sebastian Bach, London Symphony Orchestra
+- 华语流行 (20%): 涵盖两岸三地多个时代的经典与新生代华语流行歌手。。代表: 周子琰, 伍佰, 张学友, 李宗盛, 陈奕迅, 毛不易
+- 日语流行/动漫原声 (18%): 偏好日系流行，尤其是动漫歌曲和V家/虚拟歌手相关作品。。代表: RADWIMPS, 米津玄師, HoneyWorks, 花譜, Liyuu
+- 欧美流行与嘻哈 (12%): 包含主流欧美流行、流行朋克和部分说唱音乐。。代表: Eminem, Justin Bieber, Coldplay, Wiz Khalifa
+- 独立/民谣 (8%): 关注中国独立音乐人和民谣创作，风格偏向清新与叙事。。代表: 赵雷, 梁博, 苏运莹, 告五人
+- 电子/氛围/游戏原声 (5%): 包含氛围音乐、电子乐和游戏/影视原声，用于营造特定氛围。。代表: Kevin Penkin, Pogo, Enya, 群星
+- 粤语经典与摇滚 (2%): 少量粤语经典歌曲和华语摇滚作品，作为怀旧点缀。。代表: 郑伊健, 许冠杰, 伍佰 & China Blue
 
-## 歌单概览
-- 挎着个笑脸喜欢的音乐 (475首)
-- 三弄喜欢的音乐 (23首)
-- 挎着个笑脸的2025年度歌单 (10首)
-- 单曲循环听不腻 (3首)
-- 古典典藏——企鹅评鉴三星带花 (569首)
-- phonk耳机炸了 (1首)
-- 尽管来 (460首)
-- 高考完后 (3首)
-- 古典 (78首)
-- 寒假 (33首)
+## 语言分布
+- 华语: 40%
+- 纯音乐/无歌词: 30%
+- 日语: 20%
+- 英语: 10%
 
-## 统计数据
-- 分析歌单数: 10
-- 总歌曲数: 1668
-- 唯一艺术家数: 1059
+## 情绪偏好
+- 沉浸与内省 (35%): 通过古典乐、氛围音乐和深度歌词营造的沉思与情感沉浸状态。
+- 轻松与治愈 (25%): 日系流行、民谣和部分华语流行带来的温暖、舒适和积极感受。
+- 怀旧与感伤 (20%): 经典华语老歌和部分欧美抒情曲引发的对往事与情感的追忆。
+- 活力与能量 (15%): 欧美嘻哈、摇滚和部分动漫主题曲提供的节奏感与振奋情绪。
+- 多元与猎奇 (5%): 对不同文化、小众风格和跨界混搭保持的好奇与探索心态。
+
+## 年代分布
+- 2020s: 25%
+- 2010s: 30%
+- 2000s: 20%
+- 更早: 25%
+
+## 高频艺术家
+- Herbert von Karajan (101首)
+- Berliner Philharmoniker (86首)
+- Kathryn Stott (77首)
+- Gabriel Fauré (77首)
+- London Symphony Orchestra (64首)
+- RADWIMPS (47首)
+- Janos Starker (37首)
+- Eminem (36首)
+- Rosalyn Tureck (33首)
+- Antal Doráti (29首)
+- Johann Sebastian Bach (25首)
+- András Schiff (25首)
+- Arthur Rubinstein (24首)
+- Gil Shaham (23首)
+- Göran Söllscher (23首)
+
+## 品味总结
+你是一个音乐品味非常宽广且有深度的“杂食”听众。核心两大支柱是古典音乐和华语流行，能同时享受巴赫的严谨结构和李宗盛的人生感悟。日语动漫/流行文化是你的一个重要分支，显示了对二次元文化的热爱。你听歌不局限于一个时代，从数十年前的经典到最前沿的新歌都有涉猎，情绪上能在沉浸思考、轻松治愈和活力四射之间自如切换。总的来说，你既有文艺青年的细腻敏感，也有拥抱流行文化的开放心态。

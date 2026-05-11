@@ -4,5 +4,6 @@ dist/
 data/
 cache/tts/
 user/.netease-cookie.json
+user/all-songs.json
 *.log
 .DS_Store
