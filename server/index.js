@@ -7,7 +7,6 @@ import { fileURLToPath } from 'url';
 import config from './config.js';
 import router, { setWsBroadcast, updateCurrentState, handleRadioNext } from './router.js';
 import { initScheduler, setWsBroadcast as setSchedulerBroadcast } from './scheduler.js';
-import { refreshSongPool } from './music.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -73,10 +72,6 @@ server.listen(config.port, () => {
   console.log(`WebSocket available at ws://localhost:${config.port}/stream`);
 
   initScheduler();
-
-  // 启动时预热歌曲池，之后每 30 分钟刷新
-  refreshSongPool().catch(() => {});
-  setInterval(() => refreshSongPool().catch(() => {}), 30 * 60 * 1000);
 });
 
 export default { app, server, wss };
