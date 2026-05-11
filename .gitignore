@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.env
+data/
+cache/tts/
+user/.netease-cookie.json
+*.log
+.DS_Store
