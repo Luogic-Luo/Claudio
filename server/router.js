@@ -319,19 +319,22 @@ router.post('/api/netease/logout', (req, res) => {
 
 export async function handleRadioNext() {
   try {
-    // 1. 用推荐引擎选歌
+    // 1. 并行：选歌 + 构建提示词
     const recentPlays = playHistory.getRecent(30);
     const recentPlayIds = recentPlays.map(p => p.song_id);
-    const { songs: recommended } = await recommendSongs(1, recentPlayIds);
 
-    if (!recommended || recommended.length === 0) {
+    const [recommendResult, systemPrompt] = await Promise.all([
+      recommendSongs(1, recentPlayIds),
+      buildSystemPrompt('radio'),
+    ]);
+
+    if (!recommendResult.songs || recommendResult.songs.length === 0) {
       throw new Error('No songs to recommend');
     }
 
-    const nextSong = recommended[0];
+    const nextSong = recommendResult.songs[0];
 
-    // 2. 让 AI 只写串词（不推荐歌）
-    const systemPrompt = await buildSystemPrompt('radio');
+    // 2. AI 生成串词
     const radioPrompt = `下一首歌已经选好了：${nextSong.name} - ${nextSong.artist}（来自${nextSong.source === 'discovery' ? '新歌发现' : '收藏库'}）。
 请为这首歌写 DJ 串词。要求：
 1) 聚焦于这首歌本身——讲它的故事、歌词、编曲、歌手背景
@@ -344,14 +347,13 @@ export async function handleRadioNext() {
     chatHistory.add('user', `[电台] 为 ${nextSong.name} - ${nextSong.artist} 写串词`, { radio: true });
     chatHistory.add('assistant', JSON.stringify(aiResponse), { radio: true });
 
-    // 3. 获取歌曲 URL
-    const songUrl = await getSongUrl(nextSong.id);
-    const playlist = songUrl ? [{ ...nextSong, url: songUrl.url }] : [];
+    // 3. 并行：获取歌曲 URL + TTS 合成
+    const [songUrl, ttsPath] = await Promise.all([
+      getSongUrl(nextSong.id),
+      aiResponse.say ? synthesize(aiResponse.say) : Promise.resolve(null),
+    ]);
 
-    let ttsPath = null;
-    if (aiResponse.say) {
-      ttsPath = await synthesize(aiResponse.say);
-    }
+    const playlist = songUrl ? [{ ...nextSong, url: songUrl.url }] : [];
 
     if (wsBroadcast) {
       wsBroadcast({
