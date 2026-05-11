@@ -72,28 +72,19 @@ export const useWebSocketStore = defineStore('websocket', () => {
           playerStore.startDJSpeaking(sayText);
         }
         if (data.ttsPath) {
-          const ttsAudio = new Audio(data.ttsPath);
-          ttsAudio.onended = () => {
-            playerStore.stopDJSpeaking();
-            if (data.playlist?.length > 0) {
-              playerStore.loadPlaylist(data.playlist);
-              playerStore.play();
+          playTTSWithMidCallback(data.ttsPath,
+            // halfway: load and start music
+            () => {
+              if (data.playlist?.length > 0) {
+                playerStore.loadPlaylist(data.playlist);
+                playerStore.play();
+              }
+            },
+            // ended: close popup only, don't touch music
+            () => {
+              playerStore.stopDJSpeaking();
             }
-          };
-          ttsAudio.onerror = () => {
-            playerStore.stopDJSpeaking();
-            if (data.playlist?.length > 0) {
-              playerStore.loadPlaylist(data.playlist);
-              playerStore.play();
-            }
-          };
-          ttsAudio.play().catch(() => {
-            playerStore.stopDJSpeaking();
-            if (data.playlist?.length > 0) {
-              playerStore.loadPlaylist(data.playlist);
-              playerStore.play();
-            }
-          });
+          );
         } else {
           playerStore.stopDJSpeaking();
           if (data.playlist?.length > 0) {
@@ -141,6 +132,39 @@ export const useWebSocketStore = defineStore('websocket', () => {
   function playTTS(path) {
     const audio = new Audio(path);
     audio.play().catch(console.error);
+  }
+
+  function playTTSWithMidCallback(path, onMid, onEnded) {
+    const ttsAudio = new Audio(path);
+    let midDone = false;
+    let endDone = false;
+
+    ttsAudio.addEventListener('loadedmetadata', () => {
+      const midPoint = ttsAudio.duration * 0.5;
+      ttsAudio.addEventListener('timeupdate', function onTime() {
+        if (!midDone && ttsAudio.currentTime >= midPoint) {
+          midDone = true;
+          ttsAudio.removeEventListener('timeupdate', onTime);
+          onMid();
+        }
+      });
+    });
+
+    ttsAudio.onended = () => {
+      if (endDone) return;
+      endDone = true;
+      onEnded();
+    };
+    ttsAudio.onerror = () => {
+      if (endDone) return;
+      endDone = true;
+      onEnded();
+    };
+    ttsAudio.play().catch(() => {
+      if (endDone) return;
+      endDone = true;
+      onEnded();
+    });
   }
 
   function send(data) {
