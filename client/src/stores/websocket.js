@@ -72,27 +72,34 @@ export const useWebSocketStore = defineStore('websocket', () => {
           playerStore.startDJSpeaking(sayText);
         }
         if (data.ttsPath) {
-          playTTSWithMidCallback(data.ttsPath,
-            // halfway: start music underneath
-            () => {
-              if (data.playlist?.length > 0) {
-                playerStore.loadPlaylist(data.playlist);
-                playerStore.play();
-              }
-            },
-            // ended: stop DJ speaking only; radioLoading stays true
-            // until the music's ended event resets it in next()
-            () => {
-              playerStore.stopDJSpeaking();
+          const ttsAudio = new Audio(data.ttsPath);
+          ttsAudio.onended = () => {
+            playerStore.stopDJSpeaking();
+            if (data.playlist?.length > 0) {
+              playerStore.loadPlaylist(data.playlist);
+              playerStore.play();
             }
-          );
+          };
+          ttsAudio.onerror = () => {
+            playerStore.stopDJSpeaking();
+            if (data.playlist?.length > 0) {
+              playerStore.loadPlaylist(data.playlist);
+              playerStore.play();
+            }
+          };
+          ttsAudio.play().catch(() => {
+            playerStore.stopDJSpeaking();
+            if (data.playlist?.length > 0) {
+              playerStore.loadPlaylist(data.playlist);
+              playerStore.play();
+            }
+          });
         } else {
           playerStore.stopDJSpeaking();
           if (data.playlist?.length > 0) {
             playerStore.loadPlaylist(data.playlist);
             playerStore.play();
           }
-          // radioLoading stays true until music ends
         }
         break;
       }
@@ -134,42 +141,6 @@ export const useWebSocketStore = defineStore('websocket', () => {
   function playTTS(path) {
     const audio = new Audio(path);
     audio.play().catch(console.error);
-  }
-
-  function playTTSWithCallback(path, onEnded) {
-    const ttsAudio = new Audio(path);
-    ttsAudio.onended = () => onEnded();
-    ttsAudio.onerror = () => {
-      console.error('TTS playback error');
-      onEnded();
-    };
-    ttsAudio.play().catch(() => onEnded());
-  }
-
-  function playTTSWithMidCallback(path, onMid, onEnded) {
-    const ttsAudio = new Audio(path);
-    let done = false;
-
-    function finish(mid) {
-      if (done) return;
-      done = true;
-      if (mid) onMid();
-      onEnded();
-    }
-
-    ttsAudio.addEventListener('loadedmetadata', () => {
-      const midPoint = ttsAudio.duration * 0.5;
-      ttsAudio.addEventListener('timeupdate', function onTime() {
-        if (!done && ttsAudio.currentTime >= midPoint) {
-          ttsAudio.removeEventListener('timeupdate', onTime);
-          onMid();
-        }
-      });
-    });
-
-    ttsAudio.onended = () => finish(true);
-    ttsAudio.onerror = () => finish(true);
-    ttsAudio.play().catch(() => finish(true));
   }
 
   function send(data) {
