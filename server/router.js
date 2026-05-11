@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { readFileSafe } from './utils.js';
 import { userPreferences, playPlans, playHistory, chatHistory } from './db.js';
 import { chat } from './ai.js';
-import { resolvePlayList, searchSongs, recommendSongs, loadTaste, getSongUrl } from './music.js';
+import { resolvePlayList, searchSongs, recommendSongs, loadTaste, getSongUrl, popFromPool, getPoolSize, refreshSongPool } from './music.js';
 import { synthesize } from './tts.js';
 import { buildSystemPrompt, loadUserContext, getTimeContext } from './context.js';
 import {
@@ -319,22 +319,25 @@ router.post('/api/netease/logout', (req, res) => {
 
 export async function handleRadioNext() {
   try {
-    // 1. 并行：选歌 + 构建提示词
     const recentPlays = playHistory.getRecent(30);
     const recentPlayIds = recentPlays.map(p => p.song_id);
 
-    const [recommendResult, systemPrompt] = await Promise.all([
-      recommendSongs(1, recentPlayIds),
-      buildSystemPrompt('radio'),
-    ]);
+    // 1. 从歌曲池取歌（URL 已预获取，瞬间完成）
+    let nextSong = popFromPool(recentPlayIds);
 
-    if (!recommendResult.songs || recommendResult.songs.length === 0) {
-      throw new Error('No songs to recommend');
+    // 池空了，走完整流程兜底
+    if (!nextSong) {
+      const result = await recommendSongs(1, recentPlayIds);
+      if (!result.songs?.length) throw new Error('No songs to recommend');
+      nextSong = result.songs[0];
+      const url = await getSongUrl(nextSong.id);
+      if (url) nextSong.url = url.url;
     }
 
-    const nextSong = recommendResult.songs[0];
+    // 2. 并行：构建提示词（含天气等动态数据）
+    const systemPrompt = await buildSystemPrompt('radio');
 
-    // 2. AI 生成串词
+    // 3. AI 生成串词
     const radioPrompt = `下一首歌已经选好了：${nextSong.name} - ${nextSong.artist}（来自${nextSong.source === 'discovery' ? '新歌发现' : '收藏库'}）。
 请为这首歌写 DJ 串词。要求：
 1) 聚焦于这首歌本身——讲它的故事、歌词、编曲、歌手背景
@@ -347,13 +350,18 @@ export async function handleRadioNext() {
     chatHistory.add('user', `[电台] 为 ${nextSong.name} - ${nextSong.artist} 写串词`, { radio: true });
     chatHistory.add('assistant', JSON.stringify(aiResponse), { radio: true });
 
-    // 3. 并行：获取歌曲 URL + TTS 合成
-    const [songUrl, ttsPath] = await Promise.all([
-      getSongUrl(nextSong.id),
-      aiResponse.say ? synthesize(aiResponse.say) : Promise.resolve(null),
-    ]);
+    // 4. TTS 合成（歌曲 URL 已有，只需合成语音）
+    let ttsPath = null;
+    if (aiResponse.say) {
+      ttsPath = await synthesize(aiResponse.say);
+    }
 
-    const playlist = songUrl ? [{ ...nextSong, url: songUrl.url }] : [];
+    const playlist = nextSong.url ? [nextSong] : [];
+
+    // 异步补充歌曲池（不阻塞响应）
+    if (getPoolSize() < 5) {
+      refreshSongPool(recentPlayIds).catch(() => {});
+    }
 
     if (wsBroadcast) {
       wsBroadcast({

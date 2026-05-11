@@ -153,6 +153,47 @@ function fisherYatesShuffle(arr) {
   return a;
 }
 
+// --- 歌曲池（预获取 URL，减少电台等待） ---
+
+const songPool = { songs: [], refreshing: false };
+const POOL_SIZE = 20;
+
+export async function refreshSongPool(recentPlayIds = []) {
+  if (songPool.refreshing) return;
+  songPool.refreshing = true;
+  try {
+    const result = await recommendSongs(POOL_SIZE, recentPlayIds);
+    // 并行获取所有歌曲 URL
+    const resolved = await Promise.all(
+      result.songs.map(async (song) => {
+        try {
+          const url = await getSongUrl(song.id);
+          return url ? { ...song, url: url.url } : null;
+        } catch {
+          return null;
+        }
+      })
+    );
+    songPool.songs = resolved.filter(Boolean);
+    console.log(`歌曲池已刷新: ${songPool.songs.length} 首`);
+  } catch (err) {
+    console.error('刷新歌曲池失败:', err.message);
+  } finally {
+    songPool.refreshing = false;
+  }
+}
+
+export function popFromPool(recentPlayIds = []) {
+  const recentSet = new Set(recentPlayIds.map(String));
+  const idx = songPool.songs.findIndex(s => !recentSet.has(String(s.id)));
+  if (idx === -1) return null;
+  return songPool.songs.splice(idx, 1)[0];
+}
+
+export function getPoolSize() {
+  return songPool.songs.length;
+}
+
 export async function recommendSongs(count = 10, recentPlayIds = []) {
   const library = loadAllSongs();
   if (library.length === 0) return { songs: [], taste: loadTaste() };
@@ -229,4 +270,7 @@ export default {
   resolvePlayList,
   recommendSongs,
   loadTaste,
+  refreshSongPool,
+  popFromPool,
+  getPoolSize,
 };
