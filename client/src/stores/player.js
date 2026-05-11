@@ -121,12 +121,8 @@ export const usePlayerStore = defineStore('player', () => {
     if (currentIndex.value < playlist.value.length - 1) {
       currentIndex.value++;
       loadSong(playlist.value[currentIndex.value]);
-    } else if (radioMode.value && radioLoading.value) {
-      // 电台流程中歌曲自然播完 → 重置状态，允许下一轮请求
-      radioLoading.value = false;
-      isPlaying.value = false;
-    } else if (radioMode.value && !radioLoading.value) {
-      // 歌单播完，请求电台下一首
+    } else if (radioMode.value) {
+      // 电台模式：歌曲播完，请求下一首
       radioLoading.value = true;
       isPlaying.value = false;
       if (radioRequestCallback) radioRequestCallback();
