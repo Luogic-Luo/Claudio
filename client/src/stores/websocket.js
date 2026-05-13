@@ -7,8 +7,16 @@ export const useWebSocketStore = defineStore('websocket', () => {
   const ws = ref(null);
   const connected = ref(false);
   const messages = ref([]);
+  let lastRadioSay = '';
+  let lastRadioTime = 0;
 
   function connect() {
+    if (ws.value) {
+      ws.value.onclose = null;
+      ws.value.close();
+      ws.value = null;
+    }
+
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/stream`;
 
@@ -66,7 +74,14 @@ export const useWebSocketStore = defineStore('websocket', () => {
         break;
       case 'radio-response': {
         const sayText = extractSayText(data.say);
+        const now = Date.now();
+        if (sayText && sayText === lastRadioSay && now - lastRadioTime < 10000) {
+          console.log('Duplicate radio-response, skipping');
+          break;
+        }
         if (sayText) {
+          lastRadioSay = sayText;
+          lastRadioTime = now;
           const chatStore = useChatStore();
           chatStore.addMessage('assistant', sayText);
           playerStore.startDJSpeaking(sayText);

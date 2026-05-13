@@ -121,8 +121,8 @@ export const usePlayerStore = defineStore('player', () => {
     if (currentIndex.value < playlist.value.length - 1) {
       currentIndex.value++;
       loadSong(playlist.value[currentIndex.value]);
-    } else if (radioMode.value) {
-      // 电台模式：歌曲播完，请求下一首
+    } else if (radioMode.value && !radioLoading.value) {
+      // 电台模式：歌曲播完，请求下一首（防重入）
       radioLoading.value = true;
       isPlaying.value = false;
       if (radioRequestCallback) radioRequestCallback();

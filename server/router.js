@@ -317,7 +317,14 @@ router.post('/api/netease/logout', (req, res) => {
   }
 });
 
+let radioInProgress = false;
+
 export async function handleRadioNext() {
+  if (radioInProgress) {
+    console.log('handleRadioNext already in progress, skipping');
+    return null;
+  }
+  radioInProgress = true;
   try {
     // 1. 并行：选歌 + 构建提示词
     const recentPlays = playHistory.getRecent(30);
@@ -378,6 +385,8 @@ export async function handleRadioNext() {
       });
     }
     return null;
+  } finally {
+    radioInProgress = false;
   }
 }
 

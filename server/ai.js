@@ -25,11 +25,15 @@ export async function chat(systemPrompt, userMessage, chatHistory = []) {
       model: config.mimo.model,
       messages,
       temperature: 0.7,
-      max_tokens: 2000,
+      max_tokens: 4000,
       response_format: { type: 'json_object' },
     });
 
-    const content = response.data.choices[0].message.content;
+    const choice = response.data.choices[0];
+    const content = choice.message.content;
+    if (choice.finish_reason === 'length') {
+      console.warn('AI response truncated (finish_reason=length)');
+    }
     return parseResponse(content);
   } catch (error) {
     console.error('AI request failed:', error.message);
@@ -79,11 +83,23 @@ function parseResponse(content) {
     } catch {}
   }
 
-  // 4. 正则兜底：提取 "say" 字段值
+  // 4. 正则兜底：提取 "say" 字段值（含闭合引号）
   const sayMatch = content.match(/"say"\s*:\s*"((?:[^"\\]|\\[\s\S])*)"/);
   if (sayMatch) {
     return {
       say: sayMatch[1].replace(/\\"/g, '"').replace(/\\n/g, '\n'),
+      play: [],
+      reason: '',
+      segue: '',
+    };
+  }
+
+  // 4b. 截断兜底：say 字段被截断无闭合引号，提取到末尾
+  const truncatedMatch = content.match(/"say"\s*:\s*"((?:[^"\\]|\\[\s\S])*)/);
+  if (truncatedMatch && truncatedMatch[1].trim()) {
+    console.warn('parseResponse: say字段被截断，提取部分内容');
+    return {
+      say: truncatedMatch[1].replace(/\\"/g, '"').replace(/\\n/g, '\n'),
       play: [],
       reason: '',
       segue: '',
