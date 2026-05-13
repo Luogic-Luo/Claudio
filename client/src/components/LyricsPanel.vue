@@ -96,21 +96,24 @@ function seekToLine(time) {
 
 .lyrics-header {
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
   padding: 0.75rem 1.5rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   flex-shrink: 0;
+  position: relative;
 }
 
 .lyrics-song-name {
   font-size: 0.95rem;
   font-weight: 600;
+  text-align: center;
 }
 
 .lyrics-song-artist {
   font-size: 0.8rem;
   color: var(--text-secondary);
+  text-align: center;
 }
 
 .lyrics-close {
@@ -122,6 +125,8 @@ function seekToLine(time) {
   border-radius: 50%;
   transition: all 0.2s;
   font-size: 1rem;
+  position: absolute;
+  right: 1.5rem;
 }
 
 .lyrics-close:hover {
