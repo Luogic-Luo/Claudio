@@ -4,16 +4,22 @@
 
     <div class="section">
       <h2 class="section-title">音乐品味</h2>
-      <div class="card">
-        <div class="taste-content" v-if="tasteSummary">{{ tasteSummary }}</div>
-        <div class="taste-content taste-empty" v-else-if="!tasteLoading">暂无品味数据，请先在设置中登录网易云账号并生成音乐品味</div>
-        <div class="taste-loading" v-if="tasteLoading">
-          <span class="loading-dot"></span>
-          <span>AI 正在分析你的音乐品味...</span>
+      <div class="card" v-if="tasteSections.length > 0">
+        <div class="taste-subtitle" v-if="tasteSubtitle">{{ tasteSubtitle }}</div>
+        <div v-for="(section, i) in tasteSections" :key="i" class="taste-section">
+          <h3 class="taste-heading">{{ section.title }}</h3>
+          <div v-if="section.type === 'summary'" class="taste-summary-text">{{ section.content }}</div>
+          <ul v-else class="taste-list">
+            <li v-for="(item, j) in section.items" :key="j" class="taste-item">
+              <span v-if="item.name" class="taste-item-name">{{ item.name }}</span>
+              <span v-if="item.pct" class="taste-item-pct">{{ item.pct }}</span>
+              <span v-if="item.desc" class="taste-item-desc">{{ item.desc }}</span>
+            </li>
+          </ul>
         </div>
-        <button class="refresh-btn" @click="refreshTaste" :disabled="tasteLoading" title="重新生成">
-          {{ tasteLoading ? '生成中...' : '刷新品味分析' }}
-        </button>
+      </div>
+      <div class="card" v-else>
+        <div class="taste-empty">暂无品味数据，请先在设置中登录网易云账号并蒸馏听歌品味</div>
       </div>
     </div>
 
@@ -52,34 +58,76 @@
 import { ref, onMounted } from 'vue';
 import axios from 'axios';
 
-const tasteSummary = ref('');
-const tasteLoading = ref(false);
+const tasteSections = ref([]);
+const tasteSubtitle = ref('');
 const todayPlans = ref([]);
 const playHistory = ref([]);
 
 onMounted(async () => {
   await Promise.all([
-    loadTasteSummary(),
+    loadTaste(),
     loadTodayPlans(),
     loadPlayHistory(),
   ]);
 });
 
-async function loadTasteSummary(refresh = false) {
-  tasteLoading.value = true;
+async function loadTaste() {
   try {
-    const url = refresh ? '/api/taste/summary?refresh=true' : '/api/taste/summary';
-    const response = await axios.get(url);
-    tasteSummary.value = response.data.summary;
+    const response = await axios.get('/api/taste');
+    const md = response.data.taste || '';
+    parseTasteMd(md);
   } catch (error) {
-    console.error('Failed to load taste summary:', error);
-  } finally {
-    tasteLoading.value = false;
+    console.error('Failed to load taste:', error);
   }
 }
 
-function refreshTaste() {
-  loadTasteSummary(true);
+function parseTasteMd(md) {
+  if (!md.trim()) return;
+  const sections = [];
+  let subtitle = '';
+  const lines = md.split('\n');
+  let current = null;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+
+    if (trimmed.startsWith('# ')) continue;
+
+    if (trimmed.startsWith('> ')) {
+      subtitle = trimmed.slice(2);
+      continue;
+    }
+
+    if (trimmed.startsWith('## ')) {
+      if (current) sections.push(current);
+      current = { title: trimmed.slice(3), items: [], type: 'list' };
+      continue;
+    }
+
+    if (current && trimmed.startsWith('- ')) {
+      const content = trimmed.slice(2);
+      const pctMatch = content.match(/\((\d+%?)\)/);
+      const nameMatch = content.match(/^(.+?)\s*(?:\(|:)/);
+      const descMatch = content.includes(': ') ? content.split(': ').slice(1).join(': ') : '';
+
+      current.items.push({
+        name: nameMatch ? nameMatch[1].trim() : content,
+        pct: pctMatch ? pctMatch[1] : '',
+        desc: descMatch || (pctMatch ? content.replace(/^.*?\)\s*\.?\s*/, '') : ''),
+      });
+      continue;
+    }
+
+    if (current && !trimmed.startsWith('#')) {
+      current.type = 'summary';
+      current.content = (current.content || '') + trimmed;
+    }
+  }
+  if (current) sections.push(current);
+
+  tasteSections.value = sections;
+  tasteSubtitle.value = subtitle;
 }
 
 async function loadTodayPlans() {
@@ -137,60 +185,67 @@ function formatTime(dateStr) {
   padding: 1.5rem;
 }
 
-.taste-content {
-  font-size: 0.95rem;
+.taste-subtitle {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-bottom: 1.25rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.taste-section {
+  margin-bottom: 1.25rem;
+}
+
+.taste-section:last-child {
+  margin-bottom: 0;
+}
+
+.taste-heading {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 0.6rem;
+}
+
+.taste-list {
+  list-style: none;
+  padding: 0;
+}
+
+.taste-item {
+  padding: 0.3rem 0;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--text-primary);
+}
+
+.taste-item-name {
+  font-weight: 500;
+}
+
+.taste-item-pct {
+  color: var(--accent);
+  font-size: 0.8rem;
+  margin-left: 0.3rem;
+}
+
+.taste-item-desc {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+.taste-summary-text {
+  font-size: 0.9rem;
   line-height: 1.8;
   color: var(--text-primary);
-  margin-bottom: 1rem;
 }
 
 .taste-empty {
   color: var(--text-secondary);
   font-style: italic;
-}
-
-.taste-loading {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: var(--text-secondary);
-  font-size: 0.85rem;
-  margin-bottom: 1rem;
-}
-
-.loading-dot {
-  width: 8px;
-  height: 8px;
-  background: var(--accent);
-  border-radius: 50%;
-  animation: pulse-dot 1s ease-in-out infinite;
-}
-
-@keyframes pulse-dot {
-  0%, 100% { opacity: 0.3; transform: scale(0.8); }
-  50% { opacity: 1; transform: scale(1.2); }
-}
-
-.refresh-btn {
-  margin-top: 0.5rem;
-  padding: 0.4rem 1rem;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 8px;
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: 0.8rem;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.refresh-btn:hover:not(:disabled) {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-.refresh-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
+  text-align: center;
+  padding: 1rem;
 }
 
 .plans-list {

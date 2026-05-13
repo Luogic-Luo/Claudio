@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { readFileSafe } from './utils.js';
-import { userPreferences, playPlans, playHistory, chatHistory } from './db.js';
+import { playPlans, playHistory, chatHistory } from './db.js';
 import { chat } from './ai.js';
 import { resolvePlayList, searchSongs, recommendSongs, loadTaste, getSongUrl, getLyric } from './music.js';
 import { synthesize } from './tts.js';
@@ -44,37 +44,6 @@ router.get('/api/now', (req, res) => {
 router.get('/api/taste', (req, res) => {
   const userContext = loadUserContext();
   res.json(userContext);
-});
-
-router.get('/api/taste/summary', async (req, res) => {
-  try {
-    const refresh = req.query.refresh === 'true';
-    if (!refresh) {
-      const cached = userPreferences.get('taste_summary');
-      if (cached) return res.json({ summary: cached });
-    }
-
-    const userContext = loadUserContext();
-    const prompt = `以下是用户的音乐品味档案和日常习惯，请用自然、亲切的第二人称口吻（用"你"）总结这个人的音乐品味，3-5句话，中文，像朋友评价一样。不要列清单，不要用JSON，直接写段落。
-
-品味档案：
-${userContext.taste || '暂无'}
-
-日常习惯：
-${userContext.routines || '暂无'}
-
-情绪规则：
-${userContext.moodRules || '暂无'}`;
-
-    const aiResponse = await chat('你是一个善于洞察人心的音乐品味分析师。', prompt);
-    const summary = aiResponse.say || '暂无品味数据，请先在设置中登录网易云账号并生成音乐品味。';
-
-    userPreferences.set('taste_summary', summary);
-    res.json({ summary });
-  } catch (error) {
-    console.error('Taste summary failed:', error.message);
-    res.status(500).json({ error: '生成品味总结失败' });
-  }
 });
 
 router.get('/api/plan/today', (req, res) => {
