@@ -16,12 +16,14 @@
     </main>
     <PlayerBar />
     <DJSpeaking />
+    <LyricsPanel />
   </div>
 </template>
 
 <script setup>
 import PlayerBar from './components/PlayerBar.vue';
 import DJSpeaking from './components/DJSpeaking.vue';
+import LyricsPanel from './components/LyricsPanel.vue';
 </script>
 
 <style>

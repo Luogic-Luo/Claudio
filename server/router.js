@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { readFileSafe } from './utils.js';
 import { userPreferences, playPlans, playHistory, chatHistory } from './db.js';
 import { chat } from './ai.js';
-import { resolvePlayList, searchSongs, recommendSongs, loadTaste, getSongUrl } from './music.js';
+import { resolvePlayList, searchSongs, recommendSongs, loadTaste, getSongUrl, getLyric } from './music.js';
 import { synthesize } from './tts.js';
 import { buildSystemPrompt, loadUserContext, getTimeContext } from './context.js';
 import {
@@ -146,6 +146,23 @@ router.get('/api/search', async (req, res) => {
   } catch (error) {
     console.error('Search failed:', error.message);
     res.status(500).json({ error: 'Search failed' });
+  }
+});
+
+router.get('/api/lyric', async (req, res) => {
+  try {
+    const { id } = req.query;
+    if (!id) {
+      return res.status(400).json({ error: 'Song ID is required' });
+    }
+    const result = await getLyric(id);
+    if (!result) {
+      return res.json({ lrc: '', tlyric: '' });
+    }
+    res.json(result);
+  } catch (error) {
+    console.error('Lyric fetch failed:', error.message);
+    res.json({ lrc: '', tlyric: '' });
   }
 });
 

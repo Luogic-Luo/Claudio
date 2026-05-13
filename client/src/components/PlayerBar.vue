@@ -30,6 +30,14 @@
         <span>📻</span>
         <span v-if="playerStore.radioLoading" class="radio-label">思考中...</span>
       </button>
+      <button
+        class="control-btn lyrics-btn"
+        :class="{ active: playerStore.showLyrics }"
+        @click="playerStore.showLyrics = !playerStore.showLyrics"
+        title="歌词"
+      >
+        <span>词</span>
+      </button>
     </div>
 
     <div class="player-progress">
@@ -219,6 +227,18 @@ function onVolumeDown(event) {
   font-size: 0.65rem;
   white-space: nowrap;
   color: var(--text-secondary);
+}
+
+.lyrics-btn {
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.lyrics-btn.active {
+  color: var(--accent);
+  background: rgba(233, 69, 96, 0.15);
+  border-radius: 20px;
+  padding: 0.4rem 0.6rem;
 }
 
 .play-btn {
