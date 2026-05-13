@@ -17,7 +17,7 @@
       <button class="control-btn play-btn" @click="playerStore.togglePlay">
         <span>{{ playerStore.isPlaying ? '⏸' : '▶' }}</span>
       </button>
-      <button class="control-btn" @click="playerStore.next">
+      <button class="control-btn" @click="playerStore.next" :disabled="playerStore.radioLoading">
         <span>⏭</span>
       </button>
       <button

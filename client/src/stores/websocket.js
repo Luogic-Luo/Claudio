@@ -73,6 +73,7 @@ export const useWebSocketStore = defineStore('websocket', () => {
         }
         break;
       case 'radio-response': {
+        playerStore.setRadioLoading(false);
         const sayText = extractSayText(data.say);
         const now = Date.now();
         if (sayText && sayText === lastRadioSay && now - lastRadioTime < 10000) {

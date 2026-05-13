@@ -31,10 +31,12 @@ export async function chat(systemPrompt, userMessage, chatHistory = []) {
 
     const choice = response.data.choices[0];
     const content = choice.message.content;
+    const result = parseResponse(content);
     if (choice.finish_reason === 'length') {
-      console.warn('AI response truncated (finish_reason=length)');
+      console.warn('AI response truncated (finish_reason=length), raw:', content.slice(0, 300));
+      result.say = cleanTruncatedSay(result.say);
     }
-    return parseResponse(content);
+    return result;
   } catch (error) {
     console.error('AI request failed:', error.message);
     throw error;
@@ -56,6 +58,15 @@ export async function chatRaw(systemPrompt, userMessage) {
   });
 
   return JSON.parse(response.data.choices[0].message.content);
+}
+
+function cleanTruncatedSay(text) {
+  // 检测是否以不完整的句子结尾（没有句号、感叹号、问号、引号等）
+  if (/[。！？…）\)」』]$/.test(text)) return text;
+  // 找最后一个完整句子
+  const lastEnd = Math.max(text.lastIndexOf('。'), text.lastIndexOf('！'), text.lastIndexOf('？'), text.lastIndexOf('…'));
+  if (lastEnd > 0) return text.slice(0, lastEnd + 1);
+  return text;
 }
 
 function parseResponse(content) {
@@ -99,7 +110,7 @@ function parseResponse(content) {
   if (truncatedMatch && truncatedMatch[1].trim()) {
     console.warn('parseResponse: say字段被截断，提取部分内容');
     return {
-      say: truncatedMatch[1].replace(/\\"/g, '"').replace(/\\n/g, '\n'),
+      say: cleanTruncatedSay(truncatedMatch[1].replace(/\\"/g, '"').replace(/\\n/g, '\n')),
       play: [],
       reason: '',
       segue: '',
